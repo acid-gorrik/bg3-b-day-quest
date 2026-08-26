@@ -1,0 +1,457 @@
+:root {
+  --bg-void: #14100c;
+  --bg-panel: #1e1712;
+  --parchment: #e8dcc0;
+  --parchment-dim: #cdbf9e;
+  --gold: #c9a227;
+  --gold-bright: #e6c34a;
+  --blood: #7a1f2b;
+  --blood-bright: #a52d3d;
+  --ok: #4f7a3f;
+  --shadow: rgba(0, 0, 0, 0.55);
+  --radius: 6px;
+  --font-display: Georgia, "Palatino Linotype", "Book Antiqua", serif;
+  --font-body: Georgia, "Palatino Linotype", "Book Antiqua", serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-void);
+  color: var(--parchment);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse at top, rgba(201,162,39,0.06), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px);
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 40px;
+}
+
+/* ---------- Шапка главы ---------- */
+.chapter-banner {
+  position: relative;
+  padding: 28px 24px 20px;
+  text-align: center;
+  border-bottom: 1px solid rgba(201,162,39,0.35);
+  background: linear-gradient(180deg, rgba(122,31,43,0.18), transparent);
+}
+
+.chapter-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 6px;
+}
+
+.chapter-title {
+  font-family: var(--font-display);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: 28px;
+  margin: 0;
+  color: var(--parchment);
+  text-shadow: 0 2px 8px var(--shadow);
+}
+
+/* ---------- Контент ---------- */
+.screen {
+  padding: 24px 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: fadein 0.5s ease both;
+}
+
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.lore-text {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--parchment-dim);
+}
+
+.lore-text strong { color: var(--gold-bright); font-weight: normal; font-style: italic; }
+
+/* ---------- Карточка-свиток (torn paper look, без картинок) ---------- */
+.scroll-card {
+  background: var(--parchment);
+  color: #2b1d0e;
+  padding: 20px 18px;
+  position: relative;
+  clip-path: polygon(
+    0% 4%, 3% 0%, 12% 2%, 22% 0%, 34% 3%, 46% 0%, 58% 2%, 70% 0%, 82% 3%, 92% 0%, 100% 4%,
+    99% 20%, 100% 40%, 98% 60%, 100% 80%, 99% 96%,
+    88% 100%, 76% 97%, 64% 100%, 52% 97%, 40% 100%, 28% 97%, 16% 100%, 6% 97%, 0% 96%,
+    1% 80%, 0% 60%, 2% 40%, 0% 20%
+  );
+  box-shadow: 0 10px 24px var(--shadow);
+}
+
+.scroll-card h3 {
+  font-variant: small-caps;
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+
+.scroll-card p { margin: 0; line-height: 1.5; font-size: 15px; }
+
+/* ---------- Карточки еды ---------- */
+.food-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.food-card {
+  background: var(--parchment);
+  color: #2b1d0e;
+  border-radius: var(--radius);
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.35;
+  box-shadow: 0 6px 14px var(--shadow);
+  border: 1px solid rgba(0,0,0,0.15);
+}
+
+.food-card.bad {
+  background: #3c3225;
+  color: var(--parchment-dim);
+  border: 1px dashed var(--blood-bright);
+}
+
+.food-card .food-name { font-weight: bold; display: block; margin-bottom: 4px; font-variant: small-caps; }
+
+/* ---------- Поля ввода ---------- */
+.field-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.5);
+  background: var(--bg-panel);
+  color: var(--parchment);
+  font-size: 17px;
+  font-family: var(--font-body);
+}
+
+input[type="text"]:focus {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 1px;
+}
+
+/* ---------- Кнопки ---------- */
+.btn {
+  display: block;
+  width: 100%;
+  padding: 15px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, #2a2018, #1a140f);
+  color: var(--gold-bright);
+  font-family: var(--font-display);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: 17px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, var(--blood-bright), var(--blood));
+  color: var(--parchment);
+  border-color: var(--blood-bright);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--parchment-dim);
+  border-color: rgba(201,162,39,0.3);
+  font-size: 14px;
+  padding: 10px 14px;
+}
+
+.btn[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ---------- Статусы ---------- */
+.status-msg {
+  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.status-msg.error {
+  background: rgba(122,31,43,0.25);
+  color: #ffb3ba;
+  border: 1px solid var(--blood-bright);
+}
+
+.status-msg.ok {
+  background: rgba(79,122,63,0.25);
+  color: #b7e6a3;
+  border: 1px solid var(--ok);
+}
+
+/* ---------- Прогресс сборов ---------- */
+.checklist { display: flex; flex-direction: column; gap: 10px; }
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  border: 1px solid rgba(201,162,39,0.2);
+  font-size: 15px;
+}
+
+.checklist-item.done {
+  border-color: var(--ok);
+  color: var(--gold-bright);
+}
+
+.checklist-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.checklist-item.done .checklist-icon {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+/* ---------- Расписание ---------- */
+.train-list { display: flex; flex-direction: column; gap: 10px; }
+
+.train-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.25);
+}
+
+.train-time { font-size: 22px; font-family: var(--font-display); color: var(--gold-bright); }
+.train-note { font-size: 12px; color: var(--parchment-dim); }
+
+/* ---------- NFC подсказка ---------- */
+.nfc-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--parchment-dim);
+  text-align: center;
+  justify-content: center;
+}
+
+/* ---------- Утилиты ---------- */
+.footer-note {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(232,220,192,0.4);
+  padding: 10px 20px 0;
+}
+
+/* ---------- Хаб (главный экран) ---------- */
+.hub-title {
+  font-family: var(--font-display);
+  font-variant: small-caps;
+  font-size: 24px;
+  text-align: center;
+  margin: 0;
+  letter-spacing: 0.03em;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.stat-box {
+  background: var(--bg-panel);
+  border: 1px solid rgba(201,162,39,0.3);
+  border-radius: var(--radius);
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.stat-value { font-size: 18px; font-family: var(--font-display); color: var(--parchment); }
+.stat-value.health-low { color: var(--blood-bright); }
+
+.health-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(122,31,43,0.25);
+  overflow: hidden;
+  border: 1px solid rgba(201,162,39,0.25);
+}
+
+.health-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blood-bright), var(--ok));
+  transition: width 0.4s ease;
+}
+
+.direction-list { display: flex; flex-direction: column; gap: 10px; }
+
+.direction-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.4);
+  background: var(--bg-panel);
+  color: var(--parchment);
+  font-family: var(--font-display);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.direction-btn.done { border-color: var(--ok); color: var(--parchment-dim); }
+.direction-btn .tick { color: var(--ok); font-size: 14px; }
+
+.hub-secondary { display: flex; gap: 10px; margin-top: 6px; }
+.hub-secondary .btn { font-size: 14px; padding: 12px; }
+
+/* ---------- Визуальная новелла (компаньоны) ---------- */
+.vn-portrait-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid rgba(201,162,39,0.4);
+  background: linear-gradient(160deg, #2a2018, #14100c);
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vn-portrait-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.vn-portrait-placeholder {
+  color: var(--parchment-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+}
+
+.vn-approval {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(20,16,12,0.75);
+  border: 1px solid var(--gold);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 14px;
+  color: var(--gold-bright);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vn-line {
+  background: var(--bg-panel);
+  border-left: 3px solid var(--gold);
+  padding: 14px 16px;
+  font-style: italic;
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+.vn-options { display: flex; flex-direction: column; gap: 8px; }
+
+.vn-option {
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.35);
+  background: var(--bg-panel);
+  color: var(--parchment);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vn-option:active { transform: scale(0.98); }
+
+/* ---------- Команда (ростер) ---------- */
+.roster-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.25);
+}
+
+.roster-empty {
+  text-align: center;
+  color: var(--parchment-dim);
+  font-size: 14px;
+  padding: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen, .btn, .health-bar-fill { animation: none !important; transition: none !important; }
+}
