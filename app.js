@@ -643,24 +643,46 @@ function renderHealthHistory() {
 // ---------------------------------------------------------------------
 // Газета "Уста Балдура"
 // ---------------------------------------------------------------------
+// Одна картинка на выпуск: в свёрнутом виде контейнер обрезан по высоте
+// (пропорционально настоящей ширине на экране), по тапу — плавно
+// разворачивается до полной высоты той же картинки. Дублирования нет,
+// потому что это ровно один <img>, а не две наложенные друг на друга.
 function newspaperIssueBlock(issue) {
   const wrap = document.createElement("div");
   wrap.className = "newspaper-issue";
 
-  const foldBtn = document.createElement("button");
-  foldBtn.className = "newspaper-fold-btn";
-  foldBtn.innerHTML = `<img src="${issue.foldedImage}" alt="${issue.title}">`;
+  const collapsible = document.createElement("button");
+  collapsible.type = "button";
+  collapsible.className = "newspaper-collapsible";
+  collapsible.setAttribute("aria-expanded", "false");
 
-  const fullWrap = document.createElement("div");
-  fullWrap.className = "newspaper-full-wrap";
-  fullWrap.innerHTML = `<img src="${issue.fullImage}" alt="${issue.title}">`;
+  const img = document.createElement("img");
+  img.src = issue.fullImage;
+  img.alt = issue.title;
+  collapsible.appendChild(img);
 
-  foldBtn.addEventListener("click", () => {
-    fullWrap.classList.toggle("open");
+  let isOpen = false;
+
+  function applyHeight() {
+    if (!img.naturalWidth) return;
+    const renderedWidth = collapsible.clientWidth;
+    const scale = renderedWidth / img.naturalWidth;
+    const collapsedPx = CONFIG.newspaper.foldHeight * scale;
+    const fullPx = img.naturalHeight * scale;
+    collapsible.style.maxHeight = (isOpen ? fullPx : collapsedPx) + "px";
+  }
+
+  if (img.complete) applyHeight();
+  img.addEventListener("load", applyHeight);
+  window.addEventListener("resize", applyHeight);
+
+  collapsible.addEventListener("click", () => {
+    isOpen = !isOpen;
+    collapsible.setAttribute("aria-expanded", String(isOpen));
+    applyHeight();
   });
 
-  wrap.appendChild(foldBtn);
-  wrap.appendChild(fullWrap);
+  wrap.appendChild(collapsible);
   return wrap;
 }
 
@@ -776,10 +798,10 @@ function renderChapter2Submitted() {
 }
 
 // Вклеивает присланное фото в шаблон газеты (canvas) и возвращает
-// готовый "выпуск" — сложенную и развёрнутую версии как data URL.
+// готовый "выпуск" — одну картинку (сворачивание/разворот делает
+// newspaperIssueBlock на лету, отдельный файл-миниатюра не нужен).
 function composeNewspaperIssue(file) {
   const c = CONFIG.chapter2.newIssue;
-  const foldHeight = CONFIG.newspaper.foldHeight;
 
   return new Promise((resolve, reject) => {
     const templateImg = new Image();
@@ -820,16 +842,9 @@ function composeNewspaperIssue(file) {
 
             const fullDataUrl = canvas.toDataURL("image/jpeg", 0.85);
 
-            const foldCanvas = document.createElement("canvas");
-            foldCanvas.width = canvas.width;
-            foldCanvas.height = foldHeight;
-            foldCanvas.getContext("2d").drawImage(canvas, 0, 0, canvas.width, foldHeight, 0, 0, canvas.width, foldHeight);
-            const foldedDataUrl = foldCanvas.toDataURL("image/jpeg", 0.85);
-
             resolve({
               id: "issue-" + Date.now(),
               title: c.title,
-              foldedImage: foldedDataUrl,
               fullImage: fullDataUrl,
             });
           } catch (e) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "bg3quest-cache-v4";
+const CACHE_NAME = "bg3quest-cache-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -14,7 +14,6 @@ const ASSETS = [
   "./images/gejlina-joined.png",
   "./images/shadowharya.png",
   "./images/shadowharya-joined.png",
-  "./images/newspaper-01-folded.jpg",
   "./images/newspaper-01-full.jpg",
   "./images/newspaper-02-template.jpg",
 ];

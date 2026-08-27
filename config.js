@@ -268,12 +268,13 @@ const CONFIG = {
   newspaper: {
     title: "Уста Балдура",
     emptyText: "Свежих выпусков пока нет.",
+    // Сколько пикселей верхней части картинки видно в свёрнутом виде
+    // (масштабируется под реальную ширину экрана автоматически)
     foldHeight: 359,
     issues: [
       {
         id: "issue-fall",
         title: "Падение неизвестного корабля",
-        foldedImage: "images/newspaper-01-folded.jpg",
         fullImage: "images/newspaper-01-full.jpg",
       },
     ],
