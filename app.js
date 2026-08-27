@@ -19,6 +19,9 @@ function loadState() {
     dialogueApproval: {},// { companionId: накопленное одобрение в текущем прохождении }
     activeCompanionId: null,
     fightDone: false,
+    chapter2Done: false,
+    // Динамически собранные выпуски газеты (фото + шаблон), кроме готовых
+    newspaperIssues: [],
     // История изменений — показывается по тапу на плашку золота/здоровья на хабе
     goldLog: [],
     healthLog: [
@@ -111,6 +114,10 @@ function render() {
     newspaper: renderNewspaper,
     goldHistory: renderGoldHistory,
     healthHistory: renderHealthHistory,
+    chapter2Intro: renderChapter2Intro,
+    chapter2Code: renderChapter2Code,
+    chapter2Photo: renderChapter2Photo,
+    chapter2Submitted: renderChapter2Submitted,
   };
   if (state.screen.startsWith("companionApproach:")) {
     renderCompanionApproach(state.screen.split(":")[1]);
@@ -182,6 +189,20 @@ function statusMsg(text, kind) {
   return el;
 }
 
+function noteCard(title, bodyHtml) {
+  const el = document.createElement("div");
+  el.className = "note-card";
+  el.innerHTML = `
+    <div class="note-corner tl"></div>
+    <div class="note-corner tr"></div>
+    <div class="note-corner bl"></div>
+    <div class="note-corner br"></div>
+    <div class="note-title">${title}</div>
+    ${bodyHtml}
+  `;
+  return el;
+}
+
 // ---------------------------------------------------------------------
 // 1.1 — Пролог
 // ---------------------------------------------------------------------
@@ -210,7 +231,6 @@ function renderBreakfast() {
   const submit = btn("Проверить", () => {
     errorSlot.innerHTML = "";
     if (normalize(input.value) === normalize(c.password)) {
-      setHealth(CONFIG.stats.healthAfterBreakfast, CONFIG.stats.breakfastLabel);
       goTo("breakfastSuccess");
     } else {
       errorSlot.appendChild(statusMsg(c.errorText, "error"));
@@ -232,7 +252,10 @@ function renderBreakfastSuccess() {
   app.appendChild(banner(c.eyebrow, c.title));
   app.appendChild(screenWrap([
     statusMsg(c.successText, "ok"),
-    btn(c.eatButtonText, () => goTo("plateClue"), "primary"),
+    btn(c.eatButtonText, () => {
+      setHealth(CONFIG.stats.healthAfterBreakfast, CONFIG.stats.breakfastLabel);
+      goTo("plateClue");
+    }, "primary"),
   ]));
 }
 
@@ -271,20 +294,6 @@ function renderPlateClue() {
 // ---------------------------------------------------------------------
 // Жёсткий лут + загадка + поле перед отбытием
 // ---------------------------------------------------------------------
-function noteCard(title, bodyHtml) {
-  const el = document.createElement("div");
-  el.className = "note-card";
-  el.innerHTML = `
-    <div class="note-corner tl"></div>
-    <div class="note-corner tr"></div>
-    <div class="note-corner bl"></div>
-    <div class="note-corner br"></div>
-    <div class="note-title">${title}</div>
-    ${bodyHtml}
-  `;
-  return el;
-}
-
 function renderLoot() {
   const c = CONFIG.loot;
   app.appendChild(banner(c.eyebrow, c.title));
@@ -293,7 +302,9 @@ function renderLoot() {
   quote.className = "quote-line";
   quote.textContent = c.quote;
 
-  const firstNote = noteCard(c.firstNoteTitle, `<p>${c.riddle}</p>`);
+  const riddleCard = document.createElement("div");
+  riddleCard.className = "scroll-card";
+  riddleCard.innerHTML = `<h3>${c.firstNoteTitle}</h3><p>${c.riddle}</p>`;
 
   const departZone = document.createElement("div");
   departZone.style.display = "flex";
@@ -303,7 +314,11 @@ function renderLoot() {
   const departBtn = btn(c.departButtonText, () => {
     departZone.innerHTML = "";
 
-    const secondNote = noteCard(c.secondNoteTitle, `<p>${c.departPrompt}</p>`);
+    const heading = document.createElement("p");
+    heading.className = "field-label";
+    heading.textContent = c.secondNoteTitle;
+    const promptText = p(c.departPrompt);
+
     const statusSlot = document.createElement("div");
     const input = document.createElement("input");
     input.type = "text";
@@ -319,12 +334,12 @@ function renderLoot() {
       else onFail(c.errorText);
     });
 
-    [secondNote, nfcBtn, input, submit, statusSlot].forEach((el) => departZone.appendChild(el));
+    [heading, promptText, nfcBtn, input, submit, statusSlot].forEach((el) => departZone.appendChild(el));
   }, "primary");
 
   departZone.appendChild(departBtn);
 
-  app.appendChild(screenWrap([quote, firstNote, departZone]));
+  app.appendChild(screenWrap([quote, riddleCard, departZone]));
 }
 
 // ---------------------------------------------------------------------
@@ -410,9 +425,15 @@ function renderHub() {
   const children = [title, statRow, healthBar];
 
   if (recruitedCount >= 1) {
-    const mission = noteCard(c.firstMission.title, `<p>${c.firstMission.text}</p>`);
+    const missionBody = `<p>${c.firstMission.text}</p>`;
+    const mission = noteCard(c.firstMission.title, missionBody);
     mission.style.marginTop = "4px";
     children.push(mission);
+
+    const missionBtn = state.chapter2Done
+      ? (() => { const b = document.createElement("div"); b.className = "status-msg ok"; b.textContent = "✓ Выполнено"; return b; })()
+      : btn(CONFIG.chapter2.startButtonText, () => goTo("chapter2Intro"), "primary");
+    children.push(missionBtn);
   }
 
   const sectionLabel = document.createElement("p");
@@ -446,6 +467,24 @@ function findCompanion(id) {
   return CONFIG.companions.find((c) => c.id === id);
 }
 
+function portraitImg(src, alt) {
+  const img = document.createElement("img");
+  img.src = src;
+  img.alt = alt;
+  img.onerror = function () {
+    this.onerror = null;
+    this.replaceWith(portraitFallback(src));
+  };
+  return img;
+}
+
+function portraitFallback(src) {
+  const el = document.createElement("div");
+  el.className = "vn-portrait-placeholder";
+  el.innerHTML = `Портрет не найден<br><span style="opacity:.6">(${src})</span>`;
+  return el;
+}
+
 function renderCompanionApproach(id) {
   const comp = findCompanion(id);
   if (!comp) { goTo("hub"); return; }
@@ -454,7 +493,7 @@ function renderCompanionApproach(id) {
 
   const portrait = document.createElement("div");
   portrait.className = "vn-portrait-wrap";
-  portrait.innerHTML = `<div class="vn-portrait-placeholder">Портрет появится здесь<br>(${comp.portrait})</div>`;
+  portrait.appendChild(portraitImg(comp.portrait, comp.name));
 
   app.appendChild(screenWrap([
     portrait,
@@ -484,10 +523,11 @@ function renderCompanionDialogue(id) {
   const portraitWrap = document.createElement("div");
   portraitWrap.className = "vn-portrait-wrap";
   const joined = step >= comp.dialogue.length;
-  portraitWrap.innerHTML = `
-    <div class="vn-portrait-placeholder">${joined ? "Портрет (улыбается)" : "Портрет"}<br>(${joined ? comp.portraitJoined : comp.portrait})</div>
-    <div class="vn-approval">${comp.approvalIcon} ${approval}</div>
-  `;
+  portraitWrap.appendChild(portraitImg(joined ? comp.portraitJoined : comp.portrait, comp.name));
+  const approvalBadge = document.createElement("div");
+  approvalBadge.className = "vn-approval";
+  approvalBadge.textContent = `${comp.approvalIcon} ${approval}`;
+  portraitWrap.appendChild(approvalBadge);
 
   if (joined) {
     const line = document.createElement("div");
@@ -601,15 +641,210 @@ function renderHealthHistory() {
 }
 
 // ---------------------------------------------------------------------
-// Газета (заглушка)
+// Газета "Уста Балдура"
 // ---------------------------------------------------------------------
+function newspaperIssueBlock(issue) {
+  const wrap = document.createElement("div");
+  wrap.className = "newspaper-issue";
+
+  const foldBtn = document.createElement("button");
+  foldBtn.className = "newspaper-fold-btn";
+  foldBtn.innerHTML = `<img src="${issue.foldedImage}" alt="${issue.title}">`;
+
+  const fullWrap = document.createElement("div");
+  fullWrap.className = "newspaper-full-wrap";
+  fullWrap.innerHTML = `<img src="${issue.fullImage}" alt="${issue.title}">`;
+
+  foldBtn.addEventListener("click", () => {
+    fullWrap.classList.toggle("open");
+  });
+
+  wrap.appendChild(foldBtn);
+  wrap.appendChild(fullWrap);
+  return wrap;
+}
+
 function renderNewspaper() {
   const c = CONFIG.newspaper;
   app.appendChild(banner("Пресса", c.title));
+
+  const allIssues = [...state.newspaperIssues, ...c.issues];
+  const list = document.createElement("div");
+  list.style.display = "flex";
+  list.style.flexDirection = "column";
+  list.style.gap = "18px";
+
+  if (allIssues.length === 0) {
+    list.appendChild(statusMsg(c.emptyText, "error"));
+  } else {
+    allIssues.forEach((issue) => list.appendChild(newspaperIssueBlock(issue)));
+  }
+
+  app.appendChild(screenWrap([list, btn("Назад", () => goTo("hub"), "ghost")]));
+}
+
+// ---------------------------------------------------------------------
+// Глава 2 — "В тени Лунных Башен"
+// ---------------------------------------------------------------------
+function renderChapter2Intro() {
+  const c = CONFIG.chapter2;
+  app.appendChild(banner(c.eyebrow, c.title));
   app.appendChild(screenWrap([
-    p(c.placeholderText),
-    btn("Назад", () => goTo("hub"), "ghost"),
+    p(c.intro.text),
+    btn(c.intro.buttonText, () => goTo("chapter2Code"), "primary"),
   ]));
+}
+
+function renderChapter2Code() {
+  const c = CONFIG.chapter2;
+  const g = c.codeGate;
+  app.appendChild(banner(c.eyebrow, c.title));
+
+  const statusSlot = document.createElement("div");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = g.passwordPlaceholder;
+  input.autocomplete = "off";
+
+  const onOk = () => goTo("chapter2Photo");
+  const onFail = (msg) => { statusSlot.innerHTML = ""; statusSlot.appendChild(statusMsg(msg, "error")); };
+
+  const nfcBtn = btn(g.nfcButtonText, () => tryNfcScan(g.nfcCode, onOk, onFail), "primary");
+  const submit = btn("Проверить слово", () => {
+    if (normalize(input.value) === normalize(g.password)) onOk();
+    else onFail(g.errorText);
+  });
+
+  app.appendChild(screenWrap([
+    p(g.text),
+    nfcBtn,
+    (() => { const hr = document.createElement("p"); hr.className = "nfc-hint"; hr.textContent = "— или —"; return hr; })(),
+    input,
+    submit,
+    statusSlot,
+  ]));
+}
+
+function renderChapter2Photo() {
+  const c = CONFIG.chapter2;
+  app.appendChild(banner(c.eyebrow, c.title));
+
+  const heading = document.createElement("h3");
+  heading.style.margin = "0";
+  heading.style.fontFamily = "var(--font-display)";
+  heading.style.fontVariant = "small-caps";
+  heading.textContent = c.photo.title;
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.capture = "environment";
+  fileInput.style.display = "none";
+
+  const statusSlot = document.createElement("div");
+  const uploadBtn = btn(c.photo.uploadButtonText, () => fileInput.click(), "primary");
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    statusSlot.innerHTML = "";
+    statusSlot.appendChild(statusMsg("Обрабатываю фото...", "ok"));
+    composeNewspaperIssue(file)
+      .then((issue) => {
+        state.newspaperIssues.push(issue);
+        addGold(CONFIG.goldRewards.miniMission, c.goldLabel);
+        state.chapter2Done = true;
+        saveState();
+        goTo("chapter2Submitted");
+      })
+      .catch((err) => {
+        statusSlot.innerHTML = "";
+        statusSlot.appendChild(statusMsg("Не получилось обработать фото: " + err.message, "error"));
+      });
+  });
+
+  app.appendChild(screenWrap([heading, p(c.photo.text), uploadBtn, fileInput, statusSlot]));
+}
+
+function renderChapter2Submitted() {
+  const c = CONFIG.chapter2;
+  app.appendChild(banner(c.eyebrow, c.title));
+  app.appendChild(screenWrap([
+    statusMsg(c.submittedText, "ok"),
+    btn(c.continueButtonText, () => goTo("hub"), "primary"),
+  ]));
+}
+
+// Вклеивает присланное фото в шаблон газеты (canvas) и возвращает
+// готовый "выпуск" — сложенную и развёрнутую версии как data URL.
+function composeNewspaperIssue(file) {
+  const c = CONFIG.chapter2.newIssue;
+  const foldHeight = CONFIG.newspaper.foldHeight;
+
+  return new Promise((resolve, reject) => {
+    const templateImg = new Image();
+    templateImg.onload = () => {
+      const photoImg = new Image();
+      const reader = new FileReader();
+      reader.onload = () => {
+        photoImg.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = templateImg.width;
+            canvas.height = templateImg.height;
+            const ctx = canvas.getContext("2d");
+
+            ctx.drawImage(templateImg, 0, 0);
+
+            // Кадрируем фото "как cover" под размер квадрата в шаблоне
+            const box = c.photoBox;
+            const srcRatio = photoImg.width / photoImg.height;
+            const boxRatio = box.width / box.height;
+            let sx, sy, sw, sh;
+            if (srcRatio > boxRatio) {
+              sh = photoImg.height;
+              sw = sh * boxRatio;
+              sx = (photoImg.width - sw) / 2;
+              sy = 0;
+            } else {
+              sw = photoImg.width;
+              sh = sw / boxRatio;
+              sx = 0;
+              sy = (photoImg.height - sh) / 2;
+            }
+
+            ctx.save();
+            ctx.filter = "grayscale(1) contrast(1.1) brightness(0.95)";
+            ctx.drawImage(photoImg, sx, sy, sw, sh, box.x, box.y, box.width, box.height);
+            ctx.restore();
+
+            const fullDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+            const foldCanvas = document.createElement("canvas");
+            foldCanvas.width = canvas.width;
+            foldCanvas.height = foldHeight;
+            foldCanvas.getContext("2d").drawImage(canvas, 0, 0, canvas.width, foldHeight, 0, 0, canvas.width, foldHeight);
+            const foldedDataUrl = foldCanvas.toDataURL("image/jpeg", 0.85);
+
+            resolve({
+              id: "issue-" + Date.now(),
+              title: c.title,
+              foldedImage: foldedDataUrl,
+              fullImage: fullDataUrl,
+            });
+          } catch (e) {
+            reject(e);
+          }
+        };
+        photoImg.onerror = () => reject(new Error("не удалось прочитать фото"));
+        photoImg.src = reader.result;
+      };
+      reader.onerror = () => reject(new Error("не удалось прочитать файл"));
+      reader.readAsDataURL(file);
+    };
+    templateImg.onerror = () => reject(new Error("не удалось загрузить шаблон газеты"));
+    templateImg.src = c.templateImage;
+  });
 }
 
 // ---------------------------------------------------------------------

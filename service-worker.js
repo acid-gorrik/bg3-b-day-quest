@@ -1,4 +1,4 @@
-const CACHE_NAME = "bg3quest-cache-v1";
+const CACHE_NAME = "bg3quest-cache-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,8 +8,15 @@ const ASSETS = [
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./images/portrait-placeholder.png",
-  "./images/portrait-placeholder-joined.png",
+  "./images/karlekh.png",
+  "./images/karlekh-joined.png",
+  "./images/gejlina.png",
+  "./images/gejlina-joined.png",
+  "./images/shadowharya.png",
+  "./images/shadowharya-joined.png",
+  "./images/newspaper-01-folded.jpg",
+  "./images/newspaper-01-full.jpg",
+  "./images/newspaper-02-template.jpg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -28,17 +35,20 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Стратегия "сеть в приоритете, кэш — запасной вариант":
+// пока есть интернет (при разработке/тестах) — всегда подтягивается
+// свежая версия файлов и кэш обновляется. Как только сети нет
+// (день квеста, глушилки в центре) — приложение работает из кэша.
 self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => cached);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
