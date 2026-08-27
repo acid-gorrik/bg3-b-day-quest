@@ -19,6 +19,11 @@ function loadState() {
     dialogueApproval: {},// { companionId: накопленное одобрение в текущем прохождении }
     activeCompanionId: null,
     fightDone: false,
+    // История изменений — показывается по тапу на плашку золота/здоровья на хабе
+    goldLog: [],
+    healthLog: [
+      { delta: CONFIG.stats.healthStart - CONFIG.stats.healthMax, label: CONFIG.stats.fallLabel },
+    ],
   };
 }
 
@@ -34,13 +39,19 @@ function goTo(screen) {
   render();
 }
 
-function addGold(amount) {
+function addGold(amount, label) {
   state.gold += amount;
+  state.goldLog.push({ delta: amount, label: label || "" });
   saveState();
 }
 
-function setHealth(value) {
-  state.health = Math.max(0, Math.min(state.healthMax, value));
+function setHealth(value, label) {
+  const clamped = Math.max(0, Math.min(state.healthMax, value));
+  const delta = clamped - state.health;
+  if (delta !== 0) {
+    state.healthLog.push({ delta: delta, label: label || "" });
+  }
+  state.health = clamped;
   saveState();
 }
 
@@ -91,22 +102,48 @@ function render() {
   const routes = {
     intro: renderIntro,
     breakfast: renderBreakfast,
+    breakfastSuccess: renderBreakfastSuccess,
     plateClue: renderPlateClue,
     loot: renderLoot,
     train: renderTrain,
     hub: renderHub,
     roster: renderRoster,
     newspaper: renderNewspaper,
+    goldHistory: renderGoldHistory,
+    healthHistory: renderHealthHistory,
   };
   if (state.screen.startsWith("companionApproach:")) {
     renderCompanionApproach(state.screen.split(":")[1]);
-    return;
-  }
-  if (state.screen.startsWith("companionDialogue:")) {
+  } else if (state.screen.startsWith("companionDialogue:")) {
     renderCompanionDialogue(state.screen.split(":")[1]);
+  } else {
+    (routes[state.screen] || renderIntro)();
+  }
+  updateHealthFooter();
+}
+
+// Экраны, где вдобавок к основному контенту всегда видна нижняя
+// полоска здоровья (весь пролог — от падения до отправления электрички)
+const PROLOGUE_SCREENS = ["intro", "breakfast", "breakfastSuccess", "plateClue", "loot", "train"];
+
+function updateHealthFooter() {
+  const footerEl = document.getElementById("health-footer");
+  const show = PROLOGUE_SCREENS.includes(state.screen);
+  app.classList.toggle("has-footer", show);
+  if (!show) {
+    footerEl.innerHTML = "";
     return;
   }
-  (routes[state.screen] || renderIntro)();
+  const pct = Math.round((state.health / state.healthMax) * 100);
+  footerEl.innerHTML = `
+    <div class="health-footer">
+      <div class="health-footer-inner">
+        <span class="health-footer-label">Здоровье</span>
+        <div class="health-bar-track"><div class="health-bar-fill" style="width:${pct}%"></div></div>
+        <span class="health-footer-value">${state.health}/${state.healthMax}</span>
+      </div>
+    </div>
+  `;
 }
 
 function banner(eyebrow, title) {
@@ -173,8 +210,8 @@ function renderBreakfast() {
   const submit = btn("Проверить", () => {
     errorSlot.innerHTML = "";
     if (normalize(input.value) === normalize(c.password)) {
-      setHealth(CONFIG.stats.healthAfterBreakfast);
-      renderBreakfastSuccess();
+      setHealth(CONFIG.stats.healthAfterBreakfast, CONFIG.stats.breakfastLabel);
+      goTo("breakfastSuccess");
     } else {
       errorSlot.appendChild(statusMsg(c.errorText, "error"));
     }
@@ -234,13 +271,29 @@ function renderPlateClue() {
 // ---------------------------------------------------------------------
 // Жёсткий лут + загадка + поле перед отбытием
 // ---------------------------------------------------------------------
+function noteCard(title, bodyHtml) {
+  const el = document.createElement("div");
+  el.className = "note-card";
+  el.innerHTML = `
+    <div class="note-corner tl"></div>
+    <div class="note-corner tr"></div>
+    <div class="note-corner bl"></div>
+    <div class="note-corner br"></div>
+    <div class="note-title">${title}</div>
+    ${bodyHtml}
+  `;
+  return el;
+}
+
 function renderLoot() {
   const c = CONFIG.loot;
   app.appendChild(banner(c.eyebrow, c.title));
 
-  const riddleCard = document.createElement("div");
-  riddleCard.className = "scroll-card";
-  riddleCard.innerHTML = `<h3>Загадка</h3><p>${c.riddle}</p>`;
+  const quote = document.createElement("p");
+  quote.className = "quote-line";
+  quote.textContent = c.quote;
+
+  const firstNote = noteCard(c.firstNoteTitle, `<p>${c.riddle}</p>`);
 
   const departZone = document.createElement("div");
   departZone.style.display = "flex";
@@ -249,7 +302,8 @@ function renderLoot() {
 
   const departBtn = btn(c.departButtonText, () => {
     departZone.innerHTML = "";
-    const prompt = p(c.departPrompt);
+
+    const secondNote = noteCard(c.secondNoteTitle, `<p>${c.departPrompt}</p>`);
     const statusSlot = document.createElement("div");
     const input = document.createElement("input");
     input.type = "text";
@@ -265,12 +319,12 @@ function renderLoot() {
       else onFail(c.errorText);
     });
 
-    [prompt, nfcBtn, input, submit, statusSlot].forEach((el) => departZone.appendChild(el));
+    [secondNote, nfcBtn, input, submit, statusSlot].forEach((el) => departZone.appendChild(el));
   }, "primary");
 
   departZone.appendChild(departBtn);
 
-  app.appendChild(screenWrap([riddleCard, departZone]));
+  app.appendChild(screenWrap([quote, firstNote, departZone]));
 }
 
 // ---------------------------------------------------------------------
@@ -306,19 +360,32 @@ function renderTrain() {
     });
   }
 
+  const portalGroup = document.createElement("div");
+  portalGroup.className = "tight-group";
   const portalBtn = btn(c.portalButtonText, () => goTo("hub"), "primary");
   const hint = document.createElement("p");
   hint.className = "footer-note";
   hint.textContent = c.portalButtonHint;
+  portalGroup.appendChild(portalBtn);
+  portalGroup.appendChild(hint);
 
-  app.appendChild(screenWrap([p(c.text), list, portalBtn, hint]));
+  app.appendChild(screenWrap([p(c.text), list, portalGroup]));
 }
 
 // ---------------------------------------------------------------------
 // ХАБ
 // ---------------------------------------------------------------------
+function statBox(label, valueHtml, extraClass, onClick) {
+  const box = document.createElement("div");
+  box.className = "stat-box" + (extraClass ? " " + extraClass : "") + (onClick ? " clickable" : "");
+  box.innerHTML = `<span class="stat-label">${label}</span><span class="stat-value">${valueHtml}</span>`;
+  if (onClick) box.addEventListener("click", onClick);
+  return box;
+}
+
 function renderHub() {
   const c = CONFIG.hub;
+  const recruitedCount = Object.keys(state.recruited).length;
 
   const title = document.createElement("h1");
   title.className = "hub-title";
@@ -327,24 +394,26 @@ function renderHub() {
   const healthPct = Math.round((state.health / state.healthMax) * 100);
   const statRow = document.createElement("div");
   statRow.className = "stat-row";
-  statRow.innerHTML = `
-    <div class="stat-box">
-      <span class="stat-label">Золото</span>
-      <span class="stat-value">${state.gold}</span>
-    </div>
-    <div class="stat-box">
-      <span class="stat-label">Здоровье</span>
-      <span class="stat-value ${state.health <= 6 ? "health-low" : ""}">${state.health}/${state.healthMax}</span>
-    </div>
-    <div class="stat-box">
-      <span class="stat-label">Компаньоны</span>
-      <span class="stat-value">${Object.keys(state.recruited).length}</span>
-    </div>
-  `;
+  statRow.appendChild(statBox("Золото", state.gold, "", () => goTo("goldHistory")));
+  statRow.appendChild(statBox(
+    "Здоровье",
+    `<span class="${state.health <= 6 ? "health-low" : ""}">${state.health}/${state.healthMax}</span>`,
+    "",
+    () => goTo("healthHistory")
+  ));
+  statRow.appendChild(statBox("Компаньоны", recruitedCount, "", () => goTo("roster")));
 
   const healthBar = document.createElement("div");
   healthBar.className = "health-bar-track";
   healthBar.innerHTML = `<div class="health-bar-fill" style="width:${healthPct}%"></div>`;
+
+  const children = [title, statRow, healthBar];
+
+  if (recruitedCount >= 1) {
+    const mission = noteCard(c.firstMission.title, `<p>${c.firstMission.text}</p>`);
+    mission.style.marginTop = "4px";
+    children.push(mission);
+  }
 
   const sectionLabel = document.createElement("p");
   sectionLabel.className = "field-label";
@@ -366,7 +435,8 @@ function renderHub() {
   secondary.appendChild(btn(c.newspaperButtonText, () => goTo("newspaper"), "ghost"));
   secondary.appendChild(btn(c.teamButtonText, () => goTo("roster"), "ghost"));
 
-  app.appendChild(screenWrap([title, statRow, healthBar, sectionLabel, directionList, secondary]));
+  children.push(sectionLabel, directionList, secondary);
+  app.appendChild(screenWrap(children));
 }
 
 // ---------------------------------------------------------------------
@@ -428,7 +498,7 @@ function renderCompanionDialogue(id) {
       state.recruited[id] = approval;
       state.dialogueStep[id] = 0;
       state.dialogueApproval[id] = 0;
-      addGold(CONFIG.goldRewards.companionRecruited);
+      addGold(CONFIG.goldRewards.companionRecruited, comp.name + " присоединился");
       state.activeCompanionId = null;
       saveState();
       goTo("hub");
@@ -481,12 +551,53 @@ function renderRoster() {
       if (!comp) return;
       const row = document.createElement("div");
       row.className = "roster-item";
-      row.innerHTML = `<span>${comp.name}</span><span>${comp.approvalIcon} ${state.recruited[id]}</span>`;
+      row.innerHTML = `
+        <span class="roster-left">
+          <img class="roster-portrait" src="${comp.portraitJoined}" alt="${comp.name}">
+          <span>${comp.name}</span>
+        </span>
+        <span>${comp.approvalIcon} ${state.recruited[id]}</span>
+      `;
       list.appendChild(row);
     });
   }
 
   app.appendChild(screenWrap([list, btn("Назад", () => goTo("hub"), "ghost")]));
+}
+
+// ---------------------------------------------------------------------
+// История золота / здоровья
+// ---------------------------------------------------------------------
+function renderLogScreen(eyebrow, title, log, unit) {
+  app.appendChild(banner(eyebrow, title));
+
+  const list = document.createElement("div");
+  list.style.display = "flex";
+  list.style.flexDirection = "column";
+  list.style.gap = "8px";
+
+  if (log.length === 0) {
+    list.appendChild((() => { const el = document.createElement("div"); el.className = "roster-empty"; el.textContent = "Пока пусто."; return el; })());
+  } else {
+    log.forEach((entry) => {
+      const row = document.createElement("div");
+      row.className = "log-row";
+      const sign = entry.delta > 0 ? "+" : "";
+      const cls = entry.delta >= 0 ? "positive" : "negative";
+      row.innerHTML = `<span>${entry.label || "—"}</span><span class="log-delta ${cls}">${sign}${entry.delta} ${unit}</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  app.appendChild(screenWrap([list, btn("Назад", () => goTo("hub"), "ghost")]));
+}
+
+function renderGoldHistory() {
+  renderLogScreen("Хроника", "История золота", state.goldLog, "");
+}
+
+function renderHealthHistory() {
+  renderLogScreen("Хроника", "История здоровья", state.healthLog, "");
 }
 
 // ---------------------------------------------------------------------

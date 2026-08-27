@@ -323,6 +323,13 @@ input[type="text"]:focus {
   text-align: center;
 }
 
+.stat-box.clickable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stat-box.clickable:active { transform: scale(0.96); }
+
 .stat-label {
   font-size: 10px;
   text-transform: uppercase;
@@ -451,6 +458,142 @@ input[type="text"]:focus {
   font-size: 14px;
   padding: 20px;
 }
+
+.roster-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.roster-portrait {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--gold);
+  flex-shrink: 0;
+}
+
+/* ---------- Найденная записка / предмет — рамка в духе игровых карточек ---------- */
+.note-card {
+  position: relative;
+  background: linear-gradient(180deg, #16302b, #0c1a17);
+  border: 1px solid rgba(201,162,39,0.65);
+  border-radius: 4px;
+  padding: 26px 18px 20px;
+  box-shadow: 0 10px 24px var(--shadow), inset 0 0 0 1px rgba(201,162,39,0.12);
+}
+
+.note-title {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-void);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  padding: 4px 16px;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: 14px;
+  color: #8fe0cf;
+  white-space: nowrap;
+}
+
+.note-card p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--parchment-dim);
+}
+
+.note-corner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: var(--gold);
+  transform: rotate(45deg);
+}
+
+.note-corner.tl { top: -4px; left: -4px; }
+.note-corner.tr { top: -4px; right: -4px; }
+.note-corner.bl { bottom: -4px; left: -4px; }
+.note-corner.br { bottom: -4px; right: -4px; }
+
+.quote-line {
+  font-style: italic;
+  color: var(--parchment-dim);
+  font-size: 15px;
+  padding-left: 14px;
+  border-left: 2px solid rgba(201,162,39,0.4);
+  margin: 0;
+}
+
+/* ---------- История (золото / здоровье) ---------- */
+.log-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.2);
+  font-size: 14px;
+}
+
+.log-delta { flex-shrink: 0; font-family: var(--font-display); }
+.log-delta.positive { color: var(--ok); }
+.log-delta.negative { color: var(--blood-bright); }
+
+/* ---------- Плотная группа "кнопка + подсказка" (без крупного отступа) ---------- */
+.tight-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tight-group .footer-note { padding: 0; text-align: center; }
+
+/* ---------- Нижняя полоска здоровья (только в прологе) ---------- */
+#health-footer:empty { display: none; }
+
+.health-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  background: rgba(20,16,12,0.94);
+  border-top: 1px solid rgba(201,162,39,0.4);
+  padding: 10px 20px calc(10px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+}
+
+.health-footer-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.health-footer-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.health-footer-inner .health-bar-track { flex: 1; }
+
+.health-footer-value {
+  font-size: 13px;
+  color: var(--parchment);
+  flex-shrink: 0;
+  font-family: var(--font-display);
+}
+
+.app.has-footer { padding-bottom: 74px; }
 
 @media (prefers-reduced-motion: reduce) {
   .screen, .btn, .health-bar-fill { animation: none !important; transition: none !important; }
