@@ -32,6 +32,7 @@ body {
 }
 
 .app {
+  position: relative;
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
@@ -375,6 +376,7 @@ input[type="text"]:focus {
 }
 
 .direction-btn.done { border-color: var(--ok); color: var(--parchment-dim); }
+.direction-btn[disabled] { cursor: default; opacity: 0.75; }
 .direction-btn .tick { color: var(--ok); font-size: 14px; }
 
 .hub-secondary { display: flex; gap: 10px; margin-top: 6px; }
@@ -648,6 +650,85 @@ input[type="text"]:focus {
 .newspaper-collapsible:active { opacity: 0.95; }
 
 .newspaper-collapsible img { display: block; width: 100%; height: auto; }
+
+/* ---------- Титульная заставка ---------- */
+.title-splash {
+  position: absolute;
+  inset: 0;
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--bg-void);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 48px;
+  cursor: pointer;
+}
+
+.title-splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20,16,12,0) 40%, rgba(20,16,12,0.85) 100%);
+}
+
+.title-splash-hint {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: var(--parchment);
+  font-family: var(--font-display);
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  font-size: 15px;
+  animation: pulseHint 2s ease-in-out infinite;
+}
+
+@keyframes pulseHint {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* ---------- Сплэш акта ---------- */
+.act-splash {
+  position: absolute;
+  inset: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at center, #1e1712 0%, var(--bg-void) 75%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: pointer;
+  text-align: center;
+  padding: 0 30px;
+}
+
+.act-splash-number {
+  font-family: var(--font-display);
+  font-variant: small-caps;
+  color: var(--gold);
+  font-size: 15px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.act-splash-title {
+  font-family: var(--font-display);
+  font-variant: small-caps;
+  color: var(--parchment);
+  font-size: 30px;
+  letter-spacing: 0.03em;
+}
+
+.act-splash-hint {
+  margin-top: 20px;
+  color: var(--parchment-dim);
+  font-size: 13px;
+  animation: pulseHint 2s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .screen, .btn, .health-bar-fill { animation: none !important; transition: none !important; }

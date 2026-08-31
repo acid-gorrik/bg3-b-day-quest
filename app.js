@@ -10,7 +10,7 @@ function loadState() {
     if (raw) return JSON.parse(raw);
   } catch (e) { /* игнорируем повреждённое хранилище */ }
   return {
-    screen: "intro",
+    screen: "titleSplash",
     health: CONFIG.stats.healthStart,
     healthMax: CONFIG.stats.healthMax,
     gold: CONFIG.stats.goldStart,
@@ -20,6 +20,13 @@ function loadState() {
     activeCompanionId: null,
     fightDone: false,
     chapter2Done: false,
+    chapter2RewardClaimed: false,
+    shopChoice: null,
+    shopDone: false,
+    restChoice: null,
+    restDone: false,
+    seenAct2Splash: false,
+    seenAct3Splash: false,
     // Динамически собранные выпуски газеты (фото + шаблон), кроме готовых
     newspaperIssues: [],
     // История изменений — показывается по тапу на плашку золота/здоровья на хабе
@@ -103,6 +110,7 @@ const app = document.getElementById("app");
 function render() {
   app.innerHTML = "";
   const routes = {
+    titleSplash: renderTitleSplash,
     intro: renderIntro,
     breakfast: renderBreakfast,
     breakfastSuccess: renderBreakfastSuccess,
@@ -118,6 +126,15 @@ function render() {
     chapter2Code: renderChapter2Code,
     chapter2Photo: renderChapter2Photo,
     chapter2Submitted: renderChapter2Submitted,
+    chapter2Praise: renderChapter2Praise,
+    chapter2Reward: renderChapter2Reward,
+    shopChoice: renderShopChoice,
+    shopRoute: renderShopRoute,
+    shopSwear: renderShopSwear,
+    restChoice: renderRestChoice,
+    restRoute: renderRestRoute,
+    actSplash2: renderActSplash2,
+    actSplash3: renderActSplash3,
   };
   if (state.screen.startsWith("companionApproach:")) {
     renderCompanionApproach(state.screen.split(":")[1]);
@@ -436,6 +453,20 @@ function renderHub() {
     children.push(missionBtn);
   }
 
+  if (state.chapter2RewardClaimed && !state.shopDone) {
+    const c3 = CONFIG.chapter3;
+    const card = noteCard(c3.hubCardTitle, `<p>${c3.hubCardText}</p>`);
+    card.style.marginTop = "4px";
+    children.push(card, btn(c3.startButtonText, () => goTo("shopChoice"), "primary"));
+  }
+
+  if (state.shopDone && !state.restDone) {
+    const c4 = CONFIG.chapter4;
+    const card = noteCard(c4.hubCardTitle, `<p>${c4.hubCardText}</p>`);
+    card.style.marginTop = "4px";
+    children.push(card, btn(c4.startButtonText, () => goTo("restChoice"), "primary"));
+  }
+
   const sectionLabel = document.createElement("p");
   sectionLabel.className = "field-label";
   sectionLabel.textContent = c.sectionLabel;
@@ -447,7 +478,11 @@ function renderHub() {
     const b = document.createElement("button");
     b.className = "direction-btn" + (done ? " done" : "");
     b.innerHTML = `<span>${d.label}</span>${done ? '<span class="tick">✓ пройдено</span>' : ""}`;
-    b.addEventListener("click", () => goTo("companionApproach:" + d.companionId));
+    if (done) {
+      b.disabled = true;
+    } else {
+      b.addEventListener("click", () => goTo("companionApproach:" + d.companionId));
+    }
     directionList.appendChild(b);
   });
 
@@ -540,8 +575,15 @@ function renderCompanionDialogue(id) {
       state.dialogueApproval[id] = 0;
       addGold(CONFIG.goldRewards.companionRecruited, comp.name + " присоединился");
       state.activeCompanionId = null;
-      saveState();
-      goTo("hub");
+      const allRecruited = Object.keys(state.recruited).length >= CONFIG.hub.directions.length;
+      if (allRecruited && !state.seenAct2Splash) {
+        state.seenAct2Splash = true;
+        saveState();
+        goTo("actSplash2");
+      } else {
+        saveState();
+        goTo("hub");
+      }
     }, "primary");
 
     app.appendChild(screenWrap([portraitWrap, line, continueBtn]));
@@ -774,7 +816,6 @@ function renderChapter2Photo() {
     composeNewspaperIssue(file)
       .then((issue) => {
         state.newspaperIssues.push(issue);
-        addGold(CONFIG.goldRewards.miniMission, c.goldLabel);
         state.chapter2Done = true;
         saveState();
         goTo("chapter2Submitted");
@@ -793,7 +834,39 @@ function renderChapter2Submitted() {
   app.appendChild(banner(c.eyebrow, c.title));
   app.appendChild(screenWrap([
     statusMsg(c.submittedText, "ok"),
-    btn(c.continueButtonText, () => goTo("hub"), "primary"),
+    btn(c.continueButtonText, () => goTo("chapter2Praise"), "primary"),
+  ]));
+}
+
+function renderChapter2Praise() {
+  const c = CONFIG.chapter2.praise;
+  app.appendChild(banner(c.eyebrow, c.title));
+  app.appendChild(screenWrap([
+    p(c.text),
+    btn(c.buttonText, () => goTo("chapter2Reward"), "primary"),
+  ]));
+}
+
+function renderChapter2Reward() {
+  const c = CONFIG.chapter2.reward;
+
+  if (!state.chapter2RewardClaimed) {
+    addGold(c.amount, c.goldLogLabel);
+    state.chapter2RewardClaimed = true;
+    saveState();
+  }
+
+  app.appendChild(banner(c.eyebrow, c.title));
+
+  const amountEl = document.createElement("p");
+  amountEl.className = "hub-title";
+  amountEl.style.margin = "0";
+  amountEl.textContent = `+${c.amount} ${c.amountLabel}`;
+
+  app.appendChild(screenWrap([
+    amountEl,
+    p(c.text),
+    btn(c.walletButtonText, () => goTo("goldHistory"), "primary"),
   ]));
 }
 
@@ -860,6 +933,144 @@ function composeNewspaperIssue(file) {
     templateImg.onerror = () => reject(new Error("не удалось загрузить шаблон газеты"));
     templateImg.src = c.templateImage;
   });
+}
+
+// ---------------------------------------------------------------------
+// Титульная заставка (самый первый экран)
+// ---------------------------------------------------------------------
+function renderTitleSplash() {
+  const c = CONFIG.titleSplash;
+
+  const wrap = document.createElement("div");
+  wrap.className = "title-splash";
+  wrap.style.backgroundImage = `url("${c.image}")`;
+
+  const hint = document.createElement("p");
+  hint.className = "title-splash-hint";
+  hint.textContent = c.tapHint;
+  wrap.appendChild(hint);
+
+  wrap.addEventListener("click", () => goTo("intro"));
+  app.appendChild(wrap);
+}
+
+// ---------------------------------------------------------------------
+// Сплэши актов — во весь экран, между крупными частями квеста
+// ---------------------------------------------------------------------
+function renderActSplashGeneric(actConfig, nextScreen) {
+  const wrap = document.createElement("div");
+  wrap.className = "act-splash";
+  wrap.innerHTML = `
+    <span class="act-splash-number">Акт ${actConfig.number}</span>
+    <span class="act-splash-title">${actConfig.title}</span>
+    <span class="act-splash-hint">Нажмите в любом месте</span>
+  `;
+  wrap.addEventListener("click", () => goTo(nextScreen));
+  app.appendChild(wrap);
+}
+
+function renderActSplash2() {
+  renderActSplashGeneric(CONFIG.acts.act2, "hub");
+}
+
+function renderActSplash3() {
+  renderActSplashGeneric(CONFIG.acts.act3, "hub");
+}
+
+// ---------------------------------------------------------------------
+// Глава 3 — "Трофеи с поля боя" (лавка)
+// ---------------------------------------------------------------------
+function renderShopChoice() {
+  const c = CONFIG.chapter3;
+  app.appendChild(banner(c.eyebrow, c.title));
+
+  const optionList = document.createElement("div");
+  optionList.className = "direction-list";
+  c.options.forEach((opt) => {
+    const b = document.createElement("button");
+    b.className = "direction-btn";
+    b.innerHTML = `<span>${opt.name}</span>`;
+    b.addEventListener("click", () => {
+      state.shopChoice = opt.id;
+      saveState();
+      goTo("shopRoute");
+    });
+    optionList.appendChild(b);
+  });
+
+  app.appendChild(screenWrap([p(c.choiceText), optionList]));
+}
+
+function renderShopRoute() {
+  const c = CONFIG.chapter3;
+  const opt = c.options.find((o) => o.id === state.shopChoice) || c.options[0];
+  app.appendChild(banner(c.eyebrow, opt.name));
+  app.appendChild(screenWrap([
+    p(opt.flavor),
+    btn(c.routeButtonText, () => goTo("shopSwear"), "primary"),
+  ]));
+}
+
+function renderShopSwear() {
+  const c = CONFIG.chapter3;
+  app.appendChild(banner(c.eyebrow, c.title));
+
+  const quote = document.createElement("p");
+  quote.className = "quote-line";
+  quote.textContent = c.quote;
+
+  app.appendChild(screenWrap([
+    quote,
+    btn(c.continueButtonText, () => {
+      state.shopDone = true;
+      saveState();
+      goTo("hub");
+    }, "primary"),
+  ]));
+}
+
+// ---------------------------------------------------------------------
+// Глава 4 — "Долгий привал"
+// ---------------------------------------------------------------------
+function renderRestChoice() {
+  const c = CONFIG.chapter4;
+  app.appendChild(banner(c.eyebrow, c.title));
+
+  const optionList = document.createElement("div");
+  optionList.className = "direction-list";
+  c.options.forEach((opt) => {
+    const b = document.createElement("button");
+    b.className = "direction-btn";
+    b.innerHTML = `<span>${opt.name}</span>`;
+    b.addEventListener("click", () => {
+      state.restChoice = opt.id;
+      saveState();
+      goTo("restRoute");
+    });
+    optionList.appendChild(b);
+  });
+
+  app.appendChild(screenWrap([p(c.choiceText), optionList]));
+}
+
+function renderRestRoute() {
+  const c = CONFIG.chapter4;
+  const opt = c.options.find((o) => o.id === state.restChoice) || c.options[0];
+  app.appendChild(banner(c.eyebrow, opt.name));
+  app.appendChild(screenWrap([
+    p(opt.flavor),
+    btn(c.finishButtonText, () => {
+      state.restDone = true;
+      saveState();
+      if (!state.seenAct3Splash) {
+        state.seenAct3Splash = true;
+        saveState();
+        goTo("actSplash3");
+      } else {
+        goTo("hub");
+      }
+    }, "primary"),
+  ]));
 }
 
 // ---------------------------------------------------------------------
