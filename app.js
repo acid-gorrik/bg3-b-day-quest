@@ -21,10 +21,17 @@ function loadState() {
     fightDone: false,
     chapter2Done: false,
     chapter2RewardClaimed: false,
+    silhouetteIndex: 0,
+    silhouetteHints: {},
     shopChoice: null,
     shopDone: false,
     restChoice: null,
     restDone: false,
+    legendStage: 0,     // 0 нет сообщений, 1 "собери карту", 2 "жду тебя в 17:00"
+    legendUnread: false,
+    gearDone: false,
+    gearBudgetExtra: 0,
+    mapPieceCount: 0,
     seenAct2Splash: false,
     seenAct3Splash: false,
     // Динамически собранные выпуски газеты (фото + шаблон), кроме готовых
@@ -123,16 +130,24 @@ function render() {
     goldHistory: renderGoldHistory,
     healthHistory: renderHealthHistory,
     chapter2Intro: renderChapter2Intro,
+    chapter2Silhouette: renderChapter2Silhouette,
+    chapter2SilhouettePhoto: renderChapter2SilhouettePhoto,
+    chapter2SilhouetteCompare: renderChapter2SilhouetteCompare,
     chapter2Code: renderChapter2Code,
     chapter2Photo: renderChapter2Photo,
     chapter2Submitted: renderChapter2Submitted,
     chapter2Praise: renderChapter2Praise,
-    chapter2Reward: renderChapter2Reward,
-    shopChoice: renderShopChoice,
+    chapter2Reward: renderChapter2Reward,    shopChoice: renderShopChoice,
     shopRoute: renderShopRoute,
     shopSwear: renderShopSwear,
     restChoice: renderRestChoice,
     restRoute: renderRestRoute,
+    restPhoto: renderRestPhoto,
+    restSubmitted: renderRestSubmitted,
+    legendLetter: renderLegendLetter,
+    gearPuzzle: renderGearPuzzle,
+    gearMap: renderGearMap,
+    gearBudget: renderGearBudget,
     actSplash2: renderActSplash2,
     actSplash3: renderActSplash3,
   };
@@ -140,6 +155,8 @@ function render() {
     renderCompanionApproach(state.screen.split(":")[1]);
   } else if (state.screen.startsWith("companionDialogue:")) {
     renderCompanionDialogue(state.screen.split(":")[1]);
+  } else if (state.screen.startsWith("mapPiece:")) {
+    renderMapPiece(state.screen.split(":")[1]);
   } else {
     (routes[state.screen] || renderIntro)();
   }
@@ -415,9 +432,17 @@ function statBox(label, valueHtml, extraClass, onClick) {
   return box;
 }
 
+function questDoneRow(title) {
+  const row = document.createElement("div");
+  row.className = "quest-done-row";
+  row.innerHTML = `<span>${title}</span><span class="tick">✓</span>`;
+  return row;
+}
+
 function renderHub() {
   const c = CONFIG.hub;
   const recruitedCount = Object.keys(state.recruited).length;
+  const allRecruited = recruitedCount >= c.directions.length;
 
   const title = document.createElement("h1");
   title.className = "hub-title";
@@ -441,57 +466,73 @@ function renderHub() {
 
   const children = [title, statRow, healthBar];
 
-  if (recruitedCount >= 1) {
-    const missionBody = `<p>${c.firstMission.text}</p>`;
-    const mission = noteCard(c.firstMission.title, missionBody);
-    mission.style.marginTop = "4px";
-    children.push(mission);
-
-    const missionBtn = state.chapter2Done
-      ? (() => { const b = document.createElement("div"); b.className = "status-msg ok"; b.textContent = "✓ Выполнено"; return b; })()
-      : btn(CONFIG.chapter2.startButtonText, () => goTo("chapter2Intro"), "primary");
-    children.push(missionBtn);
-  }
-
-  if (state.chapter2RewardClaimed && !state.shopDone) {
-    const c3 = CONFIG.chapter3;
-    const card = noteCard(c3.hubCardTitle, `<p>${c3.hubCardText}</p>`);
-    card.style.marginTop = "4px";
-    children.push(card, btn(c3.startButtonText, () => goTo("shopChoice"), "primary"));
-  }
-
-  if (state.shopDone && !state.restDone) {
-    const c4 = CONFIG.chapter4;
-    const card = noteCard(c4.hubCardTitle, `<p>${c4.hubCardText}</p>`);
-    card.style.marginTop = "4px";
-    children.push(card, btn(c4.startButtonText, () => goTo("restChoice"), "primary"));
-  }
-
-  const sectionLabel = document.createElement("p");
-  sectionLabel.className = "field-label";
-  sectionLabel.textContent = c.sectionLabel;
-
-  const directionList = document.createElement("div");
-  directionList.className = "direction-list";
-  c.directions.forEach((d) => {
-    const done = !!state.recruited[d.companionId];
-    const b = document.createElement("button");
-    b.className = "direction-btn" + (done ? " done" : "");
-    b.innerHTML = `<span>${d.label}</span>${done ? '<span class="tick">✓ пройдено</span>' : ""}`;
-    if (done) {
-      b.disabled = true;
+  // Лунные Башни появляются только когда весь отряд собран
+  if (allRecruited) {
+    if (state.chapter2Done) {
+      children.push(questDoneRow(c.firstMission.title));
     } else {
-      b.addEventListener("click", () => goTo("companionApproach:" + d.companionId));
+      const mission = noteCard(c.firstMission.title, `<p>${c.firstMission.text}</p>`);
+      mission.style.marginTop = "4px";
+      children.push(mission, btn(CONFIG.chapter2.startButtonText, () => goTo("chapter2Intro"), "primary"));
     }
-    directionList.appendChild(b);
-  });
+  }
+
+  // Лавки в этот раз нет — сразу после награды за Башни идёт долгий отдых
+  if (state.chapter2RewardClaimed) {
+    if (state.restDone) {
+      children.push(questDoneRow(CONFIG.chapter4.hubCardTitle));
+    } else {
+      const c4 = CONFIG.chapter4;
+      const card = noteCard(c4.hubCardTitle, `<p>${c4.hubCardText}</p>`);
+      card.style.marginTop = "4px";
+      children.push(card, btn(c4.startButtonText, () => goTo("restChoice"), "primary"));
+    }
+  }
+
+  // "Снарядиться в бой" открывается письмом от Легенды сразу после привала
+  if (state.legendStage >= 1) {
+    if (state.gearDone) {
+      children.push(questDoneRow(CONFIG.chapter5.hubCardTitle));
+    } else {
+      const c5 = CONFIG.chapter5;
+      const card = noteCard(c5.hubCardTitle, `<p>${c5.hubCardText}</p>`);
+      card.style.marginTop = "4px";
+      children.push(card, btn(c5.startButtonText, () => goTo("gearPuzzle"), "primary"));
+    }
+  }
+
+  // Список направлений для поиска союзников — прячем целиком, как только
+  // все трое найдены; посмотреть отряд можно через кнопку "Команда"
+  if (!allRecruited) {
+    const sectionLabel = document.createElement("p");
+    sectionLabel.className = "field-label";
+    sectionLabel.textContent = c.sectionLabel;
+
+    const directionList = document.createElement("div");
+    directionList.className = "direction-list";
+    c.directions.forEach((d) => {
+      const done = !!state.recruited[d.companionId];
+      const b = document.createElement("button");
+      b.className = "direction-btn" + (done ? " done" : "");
+      b.innerHTML = `<span>${d.label}</span>${done ? '<span class="tick">✓ пройдено</span>' : ""}`;
+      if (done) {
+        b.disabled = true;
+      } else {
+        b.addEventListener("click", () => goTo("companionApproach:" + d.companionId));
+      }
+      directionList.appendChild(b);
+    });
+
+    children.push(sectionLabel, directionList);
+  }
 
   const secondary = document.createElement("div");
   secondary.className = "hub-secondary";
   secondary.appendChild(btn(c.newspaperButtonText, () => goTo("newspaper"), "ghost"));
-  secondary.appendChild(btn(c.teamButtonText, () => goTo("roster"), "ghost"));
+  const teamBtn = btn(c.teamButtonText + (state.legendUnread ? " ●" : ""), () => goTo("roster"), "ghost");
+  secondary.appendChild(teamBtn);
 
-  children.push(sectionLabel, directionList, secondary);
+  children.push(secondary);
   app.appendChild(screenWrap(children));
 }
 
@@ -575,15 +616,8 @@ function renderCompanionDialogue(id) {
       state.dialogueApproval[id] = 0;
       addGold(CONFIG.goldRewards.companionRecruited, comp.name + " присоединился");
       state.activeCompanionId = null;
-      const allRecruited = Object.keys(state.recruited).length >= CONFIG.hub.directions.length;
-      if (allRecruited && !state.seenAct2Splash) {
-        state.seenAct2Splash = true;
-        saveState();
-        goTo("actSplash2");
-      } else {
-        saveState();
-        goTo("hub");
-      }
+      saveState();
+      goTo("mapPiece:" + id);
     }, "primary");
 
     app.appendChild(screenWrap([portraitWrap, line, continueBtn]));
@@ -671,7 +705,104 @@ function renderLogScreen(eyebrow, title, log, unit) {
     });
   }
 
+  // Легенда — не физический союзник, а голос в переписке. Появляется в
+  // команде только после первого сообщения (см. state.legendStage).
+  if (state.legendStage >= 1) {
+    const legend = CONFIG.legend;
+    const row = document.createElement("button");
+    row.className = "roster-item roster-item--clickable";
+    row.innerHTML = `
+      <span class="roster-left">
+        <span class="roster-portrait roster-portrait--legend">${legend.icon}</span>
+        <span>${legend.name}</span>
+      </span>
+      <span>${state.legendUnread ? '<span class="msg-badge">●</span> новое письмо' : "письмо прочитано"}</span>
+    `;
+    row.addEventListener("click", () => goTo("legendLetter"));
+    list.appendChild(row);
+  }
+
   app.appendChild(screenWrap([list, btn("Назад", () => goTo("hub"), "ghost")]));
+}
+
+// ---------------------------------------------------------------------
+// Письмо от Легенды
+// ---------------------------------------------------------------------
+function renderLegendLetter() {
+  const legend = CONFIG.legend;
+  const msg = state.legendStage >= 2 ? legend.messages.stage2 : legend.messages.stage1;
+
+  app.appendChild(banner("Письмо", legend.name));
+
+  const letter = document.createElement("div");
+  letter.className = "scroll-card";
+  letter.innerHTML = `<p>${msg.text}</p>`;
+
+  app.appendChild(screenWrap([
+    letter,
+    btn(msg.buttonText, () => {
+      state.legendUnread = false;
+      saveState();
+      goTo("hub");
+    }, "primary"),
+  ]));
+}
+
+// ---------------------------------------------------------------------
+// "Кусок карты" — лёгкий слайд-подтверждение после ключевых событий,
+// без реального изображения карты, просто текст + эмодзи + кнопка.
+// state.screen = "mapPiece:<id>", id — ключ в CONFIG.mapPieces.
+// ---------------------------------------------------------------------
+function renderMapPiece(id) {
+  const piece = CONFIG.mapPieces[id];
+  if (!piece) { goTo("hub"); return; }
+
+  app.appendChild(banner("Находка", "Часть карты"));
+
+  const emoji = document.createElement("p");
+  emoji.style.fontSize = "48px";
+  emoji.style.textAlign = "center";
+  emoji.style.margin = "10px 0";
+  emoji.textContent = piece.emoji;
+
+  app.appendChild(screenWrap([
+    p(piece.text),
+    emoji,
+    btn(CONFIG.mapPieceButtonText, () => {
+      state.mapPieceCount = (state.mapPieceCount || 0) + 1;
+      saveState();
+      proceedAfterMapPiece(id);
+    }, "primary"),
+  ]));
+}
+
+// Что происходит после того, как игрок нажал "Собрать карту" — зависит от
+// того, какое событие её выдало.
+function proceedAfterMapPiece(id) {
+  if (id === "towers") {
+    goTo("chapter2Praise");
+    return;
+  }
+  if (id === "rest") {
+    if (!state.seenAct3Splash) {
+      state.seenAct3Splash = true;
+      saveState();
+      goTo("actSplash3");
+    } else {
+      goTo("hub");
+    }
+    return;
+  }
+  // Иначе — id это компаньон: та же логика, что раньше была прямо в
+  // обработчике вербовки (проверяем, не пора ли открыть 2 акт).
+  const allRecruited = Object.keys(state.recruited).length >= CONFIG.hub.directions.length;
+  if (allRecruited && !state.seenAct2Splash) {
+    state.seenAct2Splash = true;
+    saveState();
+    goTo("actSplash2");
+  } else {
+    goTo("hub");
+  }
 }
 
 function renderGoldHistory() {
@@ -759,6 +890,143 @@ function renderChapter2Intro() {
   ]));
 }
 
+// ---------------------------------------------------------------------
+// Охота за силуэтами — по очереди N зданий: карточка-силуэт (рваная
+// бумага) → "Нашёл" → загрузка фото → сверка с тумблерами по деталям →
+// либо дальше, либо подсказка и новая попытка того же здания.
+// ---------------------------------------------------------------------
+let silhouettePhotoDataUrl = null;
+
+function currentBuilding() {
+  return CONFIG.chapter2.silhouetteHunt.buildings[state.silhouetteIndex];
+}
+
+function renderChapter2Silhouette() {
+  const hunt = CONFIG.chapter2.silhouetteHunt;
+  const building = currentBuilding();
+  if (!building) { goTo("chapter2Code"); return; }
+
+  app.appendChild(banner(CONFIG.chapter2.eyebrow, hunt.title));
+
+  const progress = document.createElement("p");
+  progress.className = "field-label";
+  progress.textContent = `Здание ${state.silhouetteIndex + 1} из ${hunt.buildings.length}`;
+
+  const card = document.createElement("div");
+  card.className = "scroll-card";
+  const hintShown = !!state.silhouetteHints[building.id];
+  card.innerHTML = `
+    <h3>${hunt.cardTitle}</h3>
+    <img src="${building.silhouette}" alt="Силуэт здания" style="display:block;width:100%;border-radius:2px;margin:8px 0;">
+    <p>${building.captionHint}${hintShown ? " " + building.extraHint : ""}</p>
+  `;
+
+  app.appendChild(screenWrap([
+    progress,
+    card,
+    btn(hunt.foundButtonText, () => goTo("chapter2SilhouettePhoto"), "primary"),
+  ]));
+}
+
+function renderChapter2SilhouettePhoto() {
+  const hunt = CONFIG.chapter2.silhouetteHunt;
+  app.appendChild(banner(CONFIG.chapter2.eyebrow, hunt.title));
+
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.capture = "environment";
+
+  const preview = document.createElement("div");
+
+  const nextBtn = btn(hunt.nextButtonText, () => {
+    if (!silhouettePhotoDataUrl) {
+      preview.innerHTML = "";
+      preview.appendChild(statusMsg("Сначала сделай фото.", "error"));
+      return;
+    }
+    goTo("chapter2SilhouetteCompare");
+  }, "primary");
+
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      silhouettePhotoDataUrl = reader.result;
+      preview.innerHTML = `<img src="${silhouettePhotoDataUrl}" style="display:block;width:100%;border-radius:4px;margin-top:10px;">`;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  app.appendChild(screenWrap([
+    p(hunt.photoPrompt),
+    input,
+    preview,
+    nextBtn,
+  ]));
+}
+
+function renderChapter2SilhouetteCompare() {
+  const hunt = CONFIG.chapter2.silhouetteHunt;
+  const building = currentBuilding();
+  app.appendChild(banner(CONFIG.chapter2.eyebrow, hunt.title));
+
+  const compareRow = document.createElement("div");
+  compareRow.className = "compare-row";
+  compareRow.innerHTML = `
+    <div class="compare-col">
+      <span class="field-label">Твоё фото</span>
+      <img src="${silhouettePhotoDataUrl || ""}" alt="Фото">
+    </div>
+    <div class="compare-col">
+      <span class="field-label">Силуэт</span>
+      <img src="${building.silhouette}" alt="Силуэт">
+    </div>
+  `;
+
+  const toggleWrap = document.createElement("div");
+  toggleWrap.className = "checklist";
+  const featureState = building.features.map(() => false);
+
+  building.features.forEach((feature, i) => {
+    const row = document.createElement("div");
+    row.className = "checklist-item";
+    row.innerHTML = `<span class="checklist-icon">✕</span><span>${feature.label}</span>`;
+    row.addEventListener("click", () => {
+      featureState[i] = !featureState[i];
+      row.classList.toggle("done", featureState[i]);
+      row.querySelector(".checklist-icon").textContent = featureState[i] ? "✓" : "✕";
+    });
+    toggleWrap.appendChild(row);
+  });
+
+  const statusSlot = document.createElement("div");
+
+  const confirmBtn = btn(hunt.confirmButtonText, () => {
+    const allMatch = featureState.every(Boolean);
+    silhouettePhotoDataUrl = null;
+
+    if (allMatch) {
+      state.silhouetteIndex += 1;
+      saveState();
+      if (state.silhouetteIndex >= hunt.buildings.length) {
+        goTo("chapter2Code");
+      } else {
+        goTo("chapter2Silhouette");
+      }
+    } else {
+      state.silhouetteHints[building.id] = true;
+      saveState();
+      statusSlot.innerHTML = "";
+      statusSlot.appendChild(statusMsg(hunt.mismatchText, "error"));
+      setTimeout(() => goTo("chapter2Silhouette"), 1400);
+    }
+  }, "primary");
+
+  app.appendChild(screenWrap([compareRow, toggleWrap, confirmBtn, statusSlot]));
+}
+
 function renderChapter2Code() {
   const c = CONFIG.chapter2;
   const g = c.codeGate;
@@ -813,7 +1081,7 @@ function renderChapter2Photo() {
     if (!file) return;
     statusSlot.innerHTML = "";
     statusSlot.appendChild(statusMsg("Обрабатываю фото...", "ok"));
-    composeNewspaperIssue(file)
+    composeNewspaperIssue(file, CONFIG.chapter2.newIssue)
       .then((issue) => {
         state.newspaperIssues.push(issue);
         state.chapter2Done = true;
@@ -834,7 +1102,7 @@ function renderChapter2Submitted() {
   app.appendChild(banner(c.eyebrow, c.title));
   app.appendChild(screenWrap([
     statusMsg(c.submittedText, "ok"),
-    btn(c.continueButtonText, () => goTo("chapter2Praise"), "primary"),
+    btn(c.continueButtonText, () => goTo("mapPiece:towers"), "primary"),
   ]));
 }
 
@@ -873,8 +1141,9 @@ function renderChapter2Reward() {
 // Вклеивает присланное фото в шаблон газеты (canvas) и возвращает
 // готовый "выпуск" — одну картинку (сворачивание/разворот делает
 // newspaperIssueBlock на лету, отдельный файл-миниатюра не нужен).
-function composeNewspaperIssue(file) {
-  const c = CONFIG.chapter2.newIssue;
+// issueConfig — {title, templateImage, photoBox}, своя для каждого события.
+function composeNewspaperIssue(file, issueConfig) {
+  const c = issueConfig;
 
   return new Promise((resolve, reject) => {
     const templateImg = new Image();
@@ -1059,16 +1328,159 @@ function renderRestRoute() {
   app.appendChild(banner(c.eyebrow, opt.name));
   app.appendChild(screenWrap([
     p(opt.flavor),
+    btn(c.startButtonText2, () => goTo("restPhoto"), "primary"),
+  ]));
+}
+
+function renderRestPhoto() {
+  const c = CONFIG.chapter4;
+  app.appendChild(banner(c.eyebrow, c.photo.title));
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/*";
+  fileInput.capture = "environment";
+  fileInput.style.display = "none";
+
+  const statusSlot = document.createElement("div");
+  const uploadBtn = btn(c.photo.uploadButtonText, () => fileInput.click(), "primary");
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    statusSlot.innerHTML = "";
+    statusSlot.appendChild(statusMsg("Обрабатываю фото...", "ok"));
+    composeNewspaperIssue(file, c.newIssue)
+      .then((issue) => {
+        state.newspaperIssues.push(issue);
+        saveState();
+        goTo("restSubmitted");
+      })
+      .catch((err) => {
+        statusSlot.innerHTML = "";
+        statusSlot.appendChild(statusMsg("Не получилось обработать фото: " + err.message, "error"));
+      });
+  });
+
+  app.appendChild(screenWrap([p(c.photo.text), uploadBtn, fileInput, statusSlot]));
+}
+
+function renderRestSubmitted() {
+  const c = CONFIG.chapter4;
+  app.appendChild(banner(c.eyebrow, c.title));
+  app.appendChild(screenWrap([
+    statusMsg(c.submittedText, "ok"),
     btn(c.finishButtonText, () => {
       state.restDone = true;
+      state.legendStage = 1;
+      state.legendUnread = true;
       saveState();
-      if (!state.seenAct3Splash) {
-        state.seenAct3Splash = true;
-        saveState();
-        goTo("actSplash3");
+      goTo("mapPiece:rest");
+    }, "primary"),
+  ]));
+}
+
+// ---------------------------------------------------------------------
+// Глава 5 — "Снарядиться в бой": тап-пазл карты → адрес → бюджет
+// ---------------------------------------------------------------------
+let gearPuzzleOrder = [];
+
+function renderGearPuzzle() {
+  const c = CONFIG.chapter5.puzzle;
+  app.appendChild(banner(CONFIG.chapter5.eyebrow, c.title));
+
+  gearPuzzleOrder = [];
+
+  const grid = document.createElement("div");
+  grid.className = "gear-puzzle-grid";
+
+  const statusSlot = document.createElement("div");
+
+  const shuffled = c.pieces.map((piece, i) => ({ piece, i })).sort(() => Math.random() - 0.5);
+
+  shuffled.forEach(({ piece, i }) => {
+    const tile = document.createElement("button");
+    tile.className = "gear-puzzle-tile";
+    tile.textContent = piece.label;
+    tile.addEventListener("click", () => {
+      if (tile.disabled) return;
+      const expectedNext = gearPuzzleOrder.length;
+      if (i === expectedNext) {
+        tile.disabled = true;
+        tile.classList.add("done");
+        gearPuzzleOrder.push(i);
+        if (gearPuzzleOrder.length === c.pieces.length) {
+          setTimeout(() => goTo("gearMap"), 400);
+        }
       } else {
-        goTo("hub");
+        statusSlot.innerHTML = "";
+        statusSlot.appendChild(statusMsg(c.mistakeText, "error"));
+        gearPuzzleOrder = [];
+        grid.querySelectorAll(".gear-puzzle-tile").forEach((t) => {
+          t.disabled = false;
+          t.classList.remove("done");
+        });
       }
+    });
+    grid.appendChild(tile);
+  });
+
+  app.appendChild(screenWrap([p(c.instructions), grid, statusSlot]));
+}
+
+function renderGearMap() {
+  const c = CONFIG.chapter5;
+  app.appendChild(banner(c.eyebrow, "Карта собрана"));
+
+  const card = document.createElement("div");
+  card.className = "scroll-card";
+  card.innerHTML = `<p class="quote-line" style="border:none;padding:0;">${c.mapAddress}</p>`;
+
+  app.appendChild(screenWrap([
+    card,
+    btn(c.mapButtonText, () => goTo("gearBudget"), "primary"),
+  ]));
+}
+
+function renderGearBudget() {
+  const c = CONFIG.chapter5.budget;
+  app.appendChild(banner(CONFIG.chapter5.eyebrow, "Закуп перед боем"));
+
+  const totalEl = document.createElement("p");
+  totalEl.className = "hub-title";
+  totalEl.style.margin = "0";
+
+  function renderTotal() {
+    totalEl.textContent = `${c.amount + state.gearBudgetExtra} ₽`;
+  }
+  renderTotal();
+
+  const input = document.createElement("input");
+  input.type = "number";
+  input.placeholder = c.addPlaceholder;
+  input.min = "0";
+
+  const addBtn = btn(c.addLabel, () => {
+    const value = parseInt(input.value, 10);
+    if (!isNaN(value) && value > 0) {
+      state.gearBudgetExtra += value;
+      saveState();
+      renderTotal();
+      input.value = "";
+    }
+  });
+
+  app.appendChild(screenWrap([
+    p(c.text),
+    totalEl,
+    input,
+    addBtn,
+    btn(c.readyButtonText, () => {
+      state.gearDone = true;
+      state.legendStage = 2;
+      state.legendUnread = true;
+      saveState();
+      goTo("hub");
     }, "primary"),
   ]));
 }

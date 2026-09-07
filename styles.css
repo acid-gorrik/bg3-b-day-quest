@@ -23,6 +23,7 @@ html, body {
   color: var(--parchment);
   font-family: var(--font-body);
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 body {
@@ -36,6 +37,7 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
   padding: 0 0 40px;
@@ -382,6 +384,21 @@ input[type="text"]:focus {
 .hub-secondary { display: flex; gap: 10px; margin-top: 6px; }
 .hub-secondary .btn { font-size: 14px; padding: 12px; }
 
+.quest-done-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(79,122,63,0.5);
+  background: var(--bg-panel);
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--parchment-dim);
+}
+
+.quest-done-row .tick { color: var(--ok); font-size: 16px; }
+
 /* ---------- Визуальная новелла (компаньоны) ---------- */
 .vn-portrait-wrap {
   position: relative;
@@ -656,6 +673,7 @@ input[type="text"]:focus {
   position: absolute;
   inset: 0;
   min-height: 100vh;
+  min-height: 100svh;
   background-size: cover;
   background-position: center;
   background-color: var(--bg-void);
@@ -695,6 +713,7 @@ input[type="text"]:focus {
   position: absolute;
   inset: 0;
   min-height: 100vh;
+  min-height: 100svh;
   background: radial-gradient(ellipse at center, #1e1712 0%, var(--bg-void) 75%);
   display: flex;
   flex-direction: column;
@@ -730,6 +749,75 @@ input[type="text"]:focus {
   animation: pulseHint 2s ease-in-out infinite;
 }
 
+/* ---------- Сверка фото с силуэтом ---------- */
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.compare-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compare-col img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.35);
+  background: var(--bg-panel);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .screen, .btn, .health-bar-fill { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Легенда в команде + значок непрочитанного ---------- */
+.roster-portrait--legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-panel);
+  color: var(--gold-bright);
+  font-size: 18px;
+}
+
+.roster-item--clickable {
+  cursor: pointer;
+  border: 1px solid rgba(201,162,39,0.4);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.msg-badge { color: var(--blood-bright); font-size: 10px; }
+
+/* ---------- Тап-пазл карты (глава 5) ---------- */
+.gear-puzzle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.gear-puzzle-tile {
+  padding: 22px 10px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(201,162,39,0.4);
+  background: var(--bg-panel);
+  color: var(--parchment);
+  font-family: var(--font-display);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.gear-puzzle-tile.done {
+  border-color: var(--ok);
+  color: var(--parchment-dim);
+  opacity: 0.6;
+}
+
+.gear-puzzle-tile[disabled] { cursor: default; }

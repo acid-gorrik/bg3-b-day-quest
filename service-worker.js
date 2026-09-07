@@ -1,4 +1,4 @@
-const CACHE_NAME = "bg3quest-cache-v6";
+const CACHE_NAME = "bg3quest-cache-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -17,6 +17,9 @@ const ASSETS = [
   "./images/newspaper-01-full.jpg",
   "./images/newspaper-02-template.jpg",
   "./images/title-splash.jpg",
+  "./images/silhouette-1.png",
+  "./images/silhouette-2.png",
+  "./images/silhouette-3.png",
 ];
 
 self.addEventListener("install", (event) => {
